@@ -6,8 +6,53 @@ isucon6
 
 - [公式ブログ](http://isucon.net/)
 
-ー
-## ツール
+
+## プロファイリング
+### w
+- 他にログインしている人がいるか確認
+
+### uptime
+- サーバの稼働時間確認
+
+
+### ps auxf
+- プロセスツリーを見る
+- ``--sort``オプションでソートして表示できる
+
+``` bash
+$ ps auxf --sort -cpu
+```
+
+### ip a
+- NICやIPアドレスの確認
+
+
+### df -Th
+- ファイルシステムの確認
+- ``-h``: ヒューマンリーダブル
+- ``-T``:ファイルシステムの種別表示
+
+
+### iostat -dx 5
+- ディスクI/Oの確認
+- ``-d``でインターバル指定
+- ``-x``で表示する情報を拡張
+
+
+### netstat -tnl
+- ネットワーク情報の表示
+- ``-t``:tcp接続情報の表示
+- ``-n``:名前解決せずIPアドレスで表示
+- ``-l``: LISTENしているポート一覧
+- ``-a``:すべてのステートを見る
+- ``-o``:タイマー情報
+- ``-p``:プロセス名の表示 root権限が必要
+
+``` bash
+$ sudo netstat -tanop
+```
+
+
 ### sar
 - インストール
 
@@ -20,7 +65,61 @@ $ sudo apt-get install sysstat
 $ sudo yum install sysstat
 ```
 
-## MySQL
+### top -c
+- ``-c``で引数の情報も表示
+- top コマンドを起動してから ``"M"(大文字) ``を入力すると消費メモリの順に表示される
+- top コマンドを起動してから ``1``を入力するとCPUコアの使用率を個別で表示
+
+
+### スロークエリログ解析
+スロークエリログを吐く
+
+- コマンドで実行する場合
+
+``` bash
+mysql> set global slow_query_log = 1;
+mysql> set global long_query_time = 0;
+mysql> set global slow_query_log_file = "/tm/slow.log";
+```
+
+- ファイルに設定する場合
+
+``` 
+slow_query_log                = 1
+slow_query_log_file           = /var/lib/mysql/mysqld-slow.log 
+long_query_time               = 0 
+log-queries-not-using-indexes = 1
+```
+
+
+解析する
+
+- **pt-query-digest**を使う
+
+インストール
+
+```bash
+$ yum localinstall -y http://percona.com/get/percona-toolkit.rpm
+```
+
+集計
+  
+```bash
+$ pt-query-digest /tmp/slow.log > /tmp/digest.txt
+```
+
+- 件数制限
+``--limit 50``
+
+- index効いてないやつだけ出力
+``--filter '($event->{No_index_used} eq "Yes" || $event->{No_good_index_used} eq "Yes")'``
+
+
+
+
+
+## チューニング
+### MySQL
 - my.cnfの場所を調べる
 
 ``` bash
@@ -58,8 +157,14 @@ mysql > SELECT table_name, engine, table_rows, avg_row_length, floor((data_lengt
 ALTER TABLE テーブル名 ADD INDEX インデックス名(カラム名);
 ```
 
+``` bsah
+cat <<'EOF' | mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb}
+alter table login_log add index ip (ip), add index user_id (user_id);
+EOF
+```
 
-## カーネルパラメータの変更
+
+### カーネルパラメータの変更
 
 ``` bash
 $ emacs /etc/sysctl.conf
@@ -82,21 +187,22 @@ net.ipv4.tcp_fin_timeout = 10 // TCPの終了待ちタイムアウト秒数を�
 $ sudo /sbin/sysctl -p
 ```
 
-
-## Redis or Memcached
+### Nginx
 
 ``` 
 $ cat /etc/nginx/nginx.conf
-worker_processes  1;
+#Nginxがシングルスレッドで動作するため、コア数に合わせて設定しておく。コア数の確認は``grep processor /proc/cpuinfo | wc -l``
+worker_processes  auto; 
 
 events {
-  worker_connections  10000;
+  #最大接続数を増やす。デフォルト1024
+  worker_connections  10000; 
 }
 
 http {
-  include     mime.types;
+  include     mime.types; // MIMEタイプと拡張子の関連付けを定義したファイルを読み込み
   access_log  off;
-  sendfile    on;
+  sendfile    on; // OSが提供しているsendfileを使用するかどうか。
   tcp_nopush  on;
   tcp_nodelay on;
   etag        off;
@@ -117,9 +223,122 @@ http {
 
 ```
 
-## Nginx
+
+## その他
+### systemctl
+- 有効化されているUnitの一覧表示
+
+``` bash
+$ systemctl list-units
+```
+
+- インストールされているUnitファイルの一覧表示(
+
+``` bash
+$ systemctl list-unit-files
+```
+
+- Unitの有効化(enable)
+  - 有効化すると、システム起動時に立ち上がるサービスとして登録される = ``chkconfig on``
+  
+``` bash
+$ sudo systemctl enable ユニット名
+```
+
+- Unitの有効/無効の確認(is-enable)
+
+``` bash
+$ sudo systemctl is-enable ユニット名
+```
+
+
+- 起動状態確認
+
+``` bash
+$ systemctl status ユニット名
+```
+
+- 起動
+``` bash
+$ systemctl start ユニット名
+```
+
+- 終了
+``` bash
+$ systemctl stop ユニット名
+```
+
+
+### 自作コマンドをサービス化
+- ``/etc/systemd/system/``の下にUnit定義ファイルを作る
+
+``` bash
+$ sudo emacs /etc/systemd/system/hello.service
+```
+
+- 定義ファイル
+  - ``Restart = always``はプロセスやサーバが不意に落ちた時に自動再起動するモード
+  
+``` 
+[Unit]
+Description = hello daemon
+
+[Service]
+ExecStart = /opt/hello.sh
+Restart = always
+Type = simple
+
+[Install]
+WantedBy = multi-user.target
+```
+
+- UnitがServiceとして認識されたか確認する
+
+```bash
+$ sudo systemctl list-unit-files --type=service | grep hello
+```
+
+- enableしてstartする
+
+
+### ubuntuバージョン確認
+
+``` bash
+$ cat /etc/lsb-release
+```
+
+### cpu情報
+
+``` bash
+$ cat /proc/cpuinfo 
+```
+
+
+### MySQL
+- インストール
+
+``` bash
+$ sudo apt update
+$ sudo apt upgrade
+$ sudo apt install mysql-server mysql-client
+```
+
+- 起動
+  - **mysqld**じゃないことに注意
+
+``` bash
+$ sudo systemctl start mysql
+```
+
+- 終了
+
+``` bash
+$ sudo systemctl stop mysql
+```
+
 
 ## 参考資料
+- [ISUCON予選突破を支えたオペレーション技術](http://blog.yuuk.io/entry/web-operations-isucon)
 - [ISUCON4 予選問題で(中略)、”my.cnf”に1行だけ足して予選通過ラインを突破するの術](http://www.slideshare.net/kazeburo/mysql-casual7isucon)
 - [コマンド一つでMysqlを速くする](http://qiita.com/kkyouhei/items/d2c40d9e3952c7049ca3)
 - [MySQL innodb_flush_method = O_DIRECTの検討](http://d.hatena.ne.jp/sh2/20101205)
@@ -131,3 +350,6 @@ http {
 - [kernel: TCP: time wait bucket table overflow の解消とTIME_WAITを減らすチューニング](http://oopsops.hatenablog.com/entry/2012/03/29/202433)
 - [ローカルポートを食いつぶしていた話](http://d.hatena.ne.jp/download_takeshi/20091013/1255443592)
 - [nginx - カーネルパラメーターのチューニング](http://qiita.com/sion_cojp/items/c02b5b5586b48eaaa469)
+- [Nginx設定のまとめ](http://qiita.com/syou007/items/3e2d410bbe65a364b603)
+- [プロセス毎のメモリ消費量を調べたい時に使えるコマンド](http://qiita.com/white_aspara25/items/cfc835006ae356189df3)
+- [はじめてのsystemdサービス管理ガイド](http://dev.classmethod.jp/cloud/aws/service-control-use-systemd/)
