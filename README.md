@@ -54,6 +54,8 @@ $ sudo netstat -tanop
 
 
 ### sar
+OSが報告する各種指標を参照する
+
 - インストール
 
 ```bash
@@ -63,6 +65,48 @@ $ sudo apt-get install sysstat
 
 ```bash
 $ sudo yum install sysstat
+```
+
+- 過去のデータを見る
+  - ``-f``でログファイルを指定する
+
+``` bash
+$ sar -f /var/log/sa/sa04
+```
+
+- 現在のデータを見る
+  - 1秒ごとに100回
+
+``` bash
+$ sar 1 100
+```
+
+
+
+- cpu 情報を表示する
+
+``` bash
+$ sar -u
+```
+
+
+- ロードアベレージを見る
+
+``` bash
+$ sar -q
+```
+
+
+- メモリ使用状況を見る
+
+``` bash
+$ sar -r
+```
+
+- スワップ発生状況を見る
+
+``` bash
+$ sar -W
 ```
 
 ### top -c
