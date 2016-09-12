@@ -8,6 +8,27 @@ isucon6
 
 
 ## プロファイリング
+### kataribe
+Nginx/Apache/Varnishncsa Log Profiler
+
+- リポジトリ
+  - https://github.com/matsuu/kataribe
+
+- インストール
+
+``` bash
+$ wget https://github.com/matsuu/kataribe/releases/download/v0.3.0/linux_386.zip
+$ unzip -d kataribe linux_386_zip
+```
+
+### alp
+
+- インストール
+
+``` bash
+$ wget https://github.com/tkuchiki/alp/releases/download/v0.3.0/alp_linux_386.zip
+```
+
 ### w
 - 他にログインしている人がいるか確認
 
@@ -194,6 +215,17 @@ mysql > use データベース名;
 mysql > SELECT table_name, engine, table_rows, avg_row_length, floor((data_length+index_length)/1024/1024) as allMB, floor((data_length)/1024/1024) as dMB, floor((index_length)/1024/1024) as iMB FROM information_schema.tables WHERE table_schema=database() ORDER BY (data_length+index_length) DESC;
 ```
 
+- カラム情報表示
+
+``` bash
+mysql > show columns from テーブル名;
+```
+
+- 外部キーやユニークキーなどが貼られているか確認
+
+``` bash
+mysql > show create from テーブル名;
+```
 
 - インデックス追加
 
@@ -211,7 +243,7 @@ EOF
 ### カーネルパラメータの変更
 
 ``` bash
-$ emacs /etc/sysctl.conf
+$ emacs /etc/sysctld/*.conf
 ```
 
 - 以下を追記
