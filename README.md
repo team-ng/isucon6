@@ -144,12 +144,13 @@ $ sar -W
 ``` bash
 mysql> set global slow_query_log = 1;
 mysql> set global long_query_time = 0;
-mysql> set global slow_query_log_file = "/tm/slow.log";
+mysql> set global slow_query_log_file = "/tmp/slow.log";
 ```
 
 - ファイルに設定する場合
 
 ``` 
+[mysqld]
 slow_query_log                = 1
 slow_query_log_file           = /var/lib/mysql/mysqld-slow.log 
 long_query_time               = 0 
@@ -159,6 +160,12 @@ log-queries-not-using-indexes = 1
 
 解析する
 
+- **mysqldumpslow**を使う
+
+``` bash
+$ mysqldumpslow -s t ${SlowLogファイル} > ${出力先ファイル}
+```
+
 - **pt-query-digest**を使う
 
 インストール
@@ -166,6 +173,15 @@ log-queries-not-using-indexes = 1
 ```bash
 $ yum localinstall -y http://percona.com/get/percona-toolkit.rpm
 ```
+
+or
+
+``` bash
+$ wget https://repo.percona.com/apt/percona-release_0.1-3.$(lsb_release -sc)_all.deb
+$ sudo dpkg -i percona-release_0.1-3.$(lsb_release -sc)_all.deb
+$ sudo apt-get install percona-toolkit
+```
+
 
 集計
   
@@ -243,7 +259,7 @@ EOF
 ### カーネルパラメータの変更
 
 ``` bash
-$ emacs /etc/sysctld/*.conf
+$ emacs /etc/sysctl.d/99-sysctl.conf
 ```
 
 - 以下を追記
@@ -266,7 +282,7 @@ $ sudo /sbin/sysctl -p
 ### Nginx
 
 ``` 
-$ cat /etc/nginx/nginx.conf
+$ emacs /etc/nginx/nginx.conf
 #Nginxがシングルスレッドで動作するため、コア数に合わせて設定しておく。コア数の確認は``grep processor /proc/cpuinfo | wc -l``
 worker_processes  auto; 
 
@@ -413,6 +429,14 @@ $ sudo systemctl stop mysql
 ```
 
 
+## Goの高速化
+### CPUを複数使う
+GOMAXPROCSは初期値1なので、そのままだと1コアを時分割して動作する（並行処理）ので複数のCPUを使う（並列処理）にはGOMAXPROCSにCPU数を入れる。
+
+``` go
+runtime.GOMAXPROCS(runtime.NumCPU())
+```
+
 ## 参考資料
 - [ISUCON予選突破を支えたオペレーション技術](http://blog.yuuk.io/entry/web-operations-isucon)
 - [ISUCON4 予選問題で(中略)、”my.cnf”に1行だけ足して予選通過ラインを突破するの術](http://www.slideshare.net/kazeburo/mysql-casual7isucon)
@@ -429,3 +453,7 @@ $ sudo systemctl stop mysql
 - [Nginx設定のまとめ](http://qiita.com/syou007/items/3e2d410bbe65a364b603)
 - [プロセス毎のメモリ消費量を調べたい時に使えるコマンド](http://qiita.com/white_aspara25/items/cfc835006ae356189df3)
 - [はじめてのsystemdサービス管理ガイド](http://dev.classmethod.jp/cloud/aws/service-control-use-systemd/)
+- [ISUCON5予選でスコア34000を出す方法](http://qiita.com/y_matsuwitter/items/771020ebb68c07053548)
+- [Golang パフォーマンスチューニング](http://qiita.com/naoina/items/d71ddfab31f4b29f6693)
+- [シェルスクリプトの結果をslackに投稿](http://qiita.com/tt2004d/items/50d79d1569c0ace118d6)
+- [MySQLでのSlowLogの分析方法](http://qiita.com/tamano/items/50c7d7ee08b133a18b97)
